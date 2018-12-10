@@ -1,0 +1,370 @@
+---
+title: "Eye on Basketball Masters"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+    social: [facebook,twitter,pinterest,google-plus]
+    theme: journal
+    logo: "D:/ESSAI/R_files/NBA1.png"
+---
+
+```{r setup, include=FALSE}
+
+library(ggplot2)
+library(FactoMineR)
+library(shiny)
+library(factoextra)
+
+data=read.csv("D:/ESSAI/R_files/Basketball/basketball_players.csv",header = T,
+              sep = ",")
+
+data=data[which(data$year>2005),-c(3,10,11,24:42)]
+d=data
+
+d=d[-which(d$playerID == "conlemi01" & d$year == 2007 ),]
+d=d[-which(d$playerID == "conlemi01" & d$year == 2008 ),]
+Eff= ( d$points + d$rebounds + d$assists + d$steals + d$blocks ) - (  (d$fgAttempted - d$fgMade) + (d$ftAttempted - d$ftMade) + d$turnovers)
+                                                               
+d=data.frame(d,Eff)
+attach(d)
+
+
+## points_min=data$points/data$minutes
+## data1=data.frame(points_min,data)
+## data1[with(data1,order(-points_min)),][1:10,c(1,2,3,8,9)]
+## valeurs ab
+
+### fonctions de performances par année #################################
+#########################################################################
+
+f1=function(x,y,color) {
+  z=x/y
+  z[which(y==0)]=0
+  p=mean(z[which(year==2006)])
+  for (t in 2007:2011)
+  p=rbind(p,mean(z[which(year==t)]))
+p1=2006:2011 ; p2=p
+d12=data.frame(p1,p2)
+ggplot(d12,aes(p1,p2))+geom_point(color=color,size=4)+xlab("")+ylab("")+
+theme(legend.position = "none")
+}
+
+moy_ann=function(x,color){
+  p=mean(x[which(year==2006)])
+for (t in 2007:2011)
+  p=rbind(p,mean(x[which(year==t)]))
+p1=2006:2011 ; p2=p
+d12=data.frame(p1,p2)
+ggplot(d12,aes(p1,p2))+geom_point(color=color,size=4)+xlab("")+ylab("")+
+theme(legend.position = "none")
+}
+
+## Fonctions de meilleure équipe ######################################
+#######################################################################
+
+best_team_year=function(x){
+  
+  d1=d[which(year==x),]
+  d1=d1[with(d1,order(-Eff)),]
+  a= d1[1:100,-c(5:7,14,15,17:20)]
+  players=as.vector(summary.factor(a$tmID))
+  teams=a$tmID
+  df=data.frame(teams,players)
+  p<-ggplot(df, aes(x=teams, y=players, fill=teams)) +
+    geom_bar(stat="identity")+theme_minimal()+coord_fixed(expand = T)
+  p
+}
+
+##### ACP ########################################################
+
+pca1=PCA(d[,5:20],scale.unit = T,ncp=10)
+pca2=PCA(d[,-c(15,16,18,17,19)],quali.sup = 1:4,scale.unit = T)
+pca3=PCA(d[,-c(13,15,16,18,17,19)],quali.sup = 1:4,scale.unit = T)
+pca4=princomp(d[5:20],cor=T)
+
+```
+
+Performances par année
+=======================================================================
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Observation des premières lignes de la base de données
+
+```{r, fig.width=6,fig.height=6}
+head(d)
+```
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Analysons l'ACP appliquée sur la base de données. 1) Scree plot (les deux premières composantes sont largement suffisantes).
+  
+```{r, fig.width=6,fig.height=6}
+fviz_screeplot(pca1)
+```
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Cercle de correlation
+
+
+```{r, fig.width=6,fig.height=6}
+fviz_pca_var(pca1)
+```
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Séléctionner deux variables selon la contribution
+
+```{r, fig.width=6,fig.height=6, echo=FALSE}
+fviz_pca_var(pca1,select.var = list(contrib = 2) )
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Nuage des individus
+
+```{r, fig.width=6,fig.height=6}
+fviz_pca_ind(pca1,col.ind = "cos2",geom = "text")
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Nuage des individus avec les variabes
+
+```{r, fig.width=6,fig.height=6}
+fviz_pca_biplot(pca3,geom = "point",col.ind = "goldenrod1",col.var = "gray0")+theme_minimal()
+```
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+
+### Boxplot de la moyenne du nombre de points marqués par joueur dans chaque année
+
+
+```{r, fig.width=15,fig.height=6}
+ggplot(d,aes(x = year,y = points))+
+geom_boxplot(aes(fill=factor(year)),notch = T,show.legend = F)+xlab("")+ylab("")+
+coord_flip()
+```
+
+row {data-width=650}
+-----------------------------------------------------------------------
+### Remarques
+
+  Ce graphique montre bien que le nombre de points marqués par les joueurs de l'année 2006 est le plus élevé. Ceci peut-il étre expliqué par l'efficacité de ces 
+joueurs?
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### La moyenne du nombre de points marqués par joueur dans chaque année
+
+```{r, fig.width=6,fig.height=6}
+moy_ann(points,"blue")
+```
+
+
+### La moyenne des minutes jouées par les joueurs de chaque année
+
+```{r, fig.width=6,fig.height=6}
+moy_ann(minutes,"red")
+```
+
+
+
+row {data-width=650}
+-----------------------------------------------------------------------
+### Remarques
+ C'est clair que la moyenne des minutes jouées par les joueurs de chaque année explique bien le premier graphique. Ce qui peut affaiblir l'hypothése de l'éfficacité des joueurs de l'année 2006. On s'appuyant sur la formule de l'éfficacité utilisé en NBA, on essayera de prouver l'invalidité de cette hypothése. 
+
+row {data-width=650}
+-----------------------------------------------------------------------
+### Formule d'éfficacité utilisée en NBA:
+[ Points + Rebounds + Assists + Steals + Blocks ] - [ (Field goals attempted - Field goals Made) + (Free throws Attempted - Free throws Made) + Turnovers ] 
+
+row {data-width=650}
+-----------------------------------------------------------------------
+### Points forts
+analysons les points forts:
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### La Moyenne des points marqués par minute par les joueurs de chaque année
+```{r, fig.width=6,fig.height=6}
+f1(points,minutes,"forestgreen")
+```
+
+### Le taux moyen de réussite des essais de 3 pts par minute réalisés par les joueurs de chaque année  
+
+```{r, fig.width=6,fig.height=6}
+f1(threeMade,threeAttempted,"forestgreen")
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Moyenne des assists par minute des joueurs de chaque année 
+
+```{r, fig.width=6,fig.height=6}
+f1(assists,minutes,"forestgreen")
+```
+
+### Moyenne des steals par minute des joueurs de chaque année 
+
+```{r, fig.width=6,fig.height=6}
+f1(d$steals,d$minutes,"forestgreen")
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Moyenne des blocks par minute des joueurs de chaque année 
+
+```{r, fig.width=6,fig.height=6}
+f1(blocks,minutes,"forestgreen")
+```
+
+### Moyenne des rebounds par minute des joueurs de chaque année 
+
+```{r, fig.width=6,fig.height=6}
+f1(rebounds,minutes,"forestgreen")
+```
+
+row {data-width=650}
+-----------------------------------------------------------------------
+### Erreurs
+analysons les erreurs:
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### erreurs des field attemptions
+
+```{r, fig.width=6,fig.height=6}
+f1((fgAttempted-fgMade),d$minutes,"peru")
+```
+
+### erreurs des free throws
+
+```{r, fig.width=6,fig.height=6}
+f1((ftAttempted-ftMade),d$minutes,"peru")
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Moyenne des turnovers par minute
+```{r, fig.width=6,fig.height=6}
+f1(turnovers,minutes,"peru")
+```
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Nuage des individus regroupés par année
+
+```{r, fig.width=6,fig.height=6}
+fviz_pca_ind(pca4,habillage = year,addEllipses = T,ellipse.level=0.6,geom = "point")+theme_minimal()
+```
+
+row {data-width=650}
+-----------------------------------------------------------------------
+### Rappelons la formule de calcul de l'efficacité des joueurs de la NBA
+[ Points + Rebounds + Assists + Steals + Blocks ] - [ (Field goals attempted - Field goals Made) + (Free throws Attempted - Free throws Made) + Turnovers ] 
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Efficacité (selon la variable efficacity)
+
+```{r, fig.width=6,fig.height=6}
+moy_ann(Eff,"deeppink")
+
+```
+
+### Efficacité divisée par le nombre de minutes jouées:
+
+```{r, fig.width=6,fig.height=6}
+f1(Eff,minutes,"darkmagenta")
+```
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Représentation de la variable Efficacity dans le cercle de corrélation:
+
+```{r, fig.width=6,fig.height=6}
+ind.coord=pca1$ind$coord
+quanti.coord=cor(Eff,ind.coord)
+fviz_add(fviz_pca_var(pca1),quanti.coord,color = "red",geom = "arrow",linetype = "solid")
+```
+
+
+
+Meilleures équipes
+======================================================================
+
+column {data-width=650}
+-----------------------------------------------------------------------
+### Meilleure équipe en 2006: Phoenix Suns (PHO)
+
+```{r, fig.width=15,fig.height=7}
+best_team_year(2006)
+```
+
+
+column {data-width=650}
+-----------------------------------------------------------------------
+### Meilleure équipe en 2007: Denver Nuggets (DEN)
+
+```{r, fig.width=15,fig.height=7}
+best_team_year(2007)
+```
+
+
+column {data-width=650}
+-----------------------------------------------------------------------
+### Meilleure équipe en 2008: Los Angeles Lakers (LAL)
+
+```{r, fig.width=15,fig.height=7}
+best_team_year(2008)
+```
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Meilleure équipe en 2009: ATL
+
+
+```{r, fig.width=15,fig.height=7}
+best_team_year(2009)
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Meilleure équipe en 2010: MIAMI HEAT
+
+```{r, fig.width=15,fig.height=7}
+best_team_year(2010)
+```
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+### Meilleure équipe en 2011: Los Angeles Lakers
+
+```{r, fig.width=15,fig.height=7}
+best_team_year(2011)
+```
+
+
+
